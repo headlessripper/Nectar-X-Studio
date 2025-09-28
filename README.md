@@ -1,4 +1,4 @@
-# 🌸 Nectar – Powered by Zashirion AI Engine  
+# Nectar – Powered by Zashirion AI Engine  
 
 ![NectarX](https://github.com/user-attachments/assets/dc85d6ad-018f-4899-ac13-631c5ee8901f)  
 
@@ -40,7 +40,9 @@ def send_to_AlphaLLM(question):
         return response.decode("utf-8")
     except (socket.error, socket.timeout) as e:
         return f"[Error] Could not connect to AlphaLLM: {e}"
-Nectar-X-Studio
+```
+
+# Nectar-X-Studio
 
 Nectar-X-Studio is the extended, feature-rich edition of Nectar—your self-hosted LLM inference suite for building agents, connecting knowledge, and performing deep research.
 
@@ -65,4 +67,4 @@ Nectar-X-Studio is the extended, feature-rich edition of Nectar—your self-host
 👥 Collaboration Tools – Chat sharing, feedback, user management, usage analytics, and more.
 
 
-Nectar-X-Studio works with all LLMs (OpenAI, Anthropic, Gemini, etc.) and self-hosted models (Ollama, vLLM, etc.).
+Nectar-X-Studio works with all LLM Models (OpenAI's GPT, Mistral, meta's llama, etc.) and self-hosted models (Ollama, vLLM, etc.).
