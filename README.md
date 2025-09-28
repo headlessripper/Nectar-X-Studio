@@ -2,7 +2,7 @@
 
 ![NectarX](https://github.com/user-attachments/assets/dc85d6ad-018f-4899-ac13-631c5ee8901f)  
 
-**Nectar** is a powerful, AI-enhanced application that seamlessly integrates with **LM Studio** to bring **local large language models** to life—right on your own machine.  
+**Nectar** is a powerful, Local AI-Inferencing application that allows thw user download create and run agents and rum  **large language models** on your own machine.  
 
 With **no internet connection required**, Nectar ensures **privacy-first, high-performance inference** using cutting-edge open-source models from **Hugging Face, Ollama, and beyond**.  
 
@@ -41,8 +41,6 @@ def send_to_AlphaLLM(question):
     except (socket.error, socket.timeout) as e:
         return f"[Error] Could not connect to AlphaLLM: {e}"
 ```
-
-# Nectar-X-Studio
 
 Nectar-X-Studio is the extended, feature-rich edition of Nectar—your self-hosted LLM inference suite for building agents, connecting knowledge, and performing deep research.
 
