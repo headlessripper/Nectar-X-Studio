@@ -1,4 +1,4 @@
-# Nectar – Powered by Zashirion AI Engine  
+# Nectar-X-Studio – Powered by Zashirion AI Engine  
 
 ![NectarX](https://github.com/user-attachments/assets/dc85d6ad-018f-4899-ac13-631c5ee8901f)  
 
