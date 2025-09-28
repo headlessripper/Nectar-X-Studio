@@ -1,4 +1,4 @@
-<h1> Open Source AI Platform <\h1>
+<h1> Open Source AI Platform </h1>
 
 Nectar-X-Studio is a feature-rich, self-hostable Chat UI that works with any LLM.
 
