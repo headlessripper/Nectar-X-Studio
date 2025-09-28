@@ -6,7 +6,7 @@
 
 With **no internet connection required**, Nectar ensures **privacy-first, high-performance inference** using cutting-edge open-source models from **Hugging Face, Ollama, and beyond**.  
 
-Whether you’re generating natural language, analyzing text, or embedding AI into your workflows, Nectar gives you **full control** over how and where your models run—optimized for **efficiency** and **user freedom**.  
+Whether you’re generating natural language, analyzing text, or embedding AI into your workflows, Nectar gives you **full control** over how and where your models run—optimized for **efficiency** and **user freedom**. it gives users the ability to building agents, connecting knowledge, and performing deep research.
 
 ---
 
@@ -16,9 +16,18 @@ Whether you’re generating natural language, analyzing text, or embedding AI in
 - ⚡ **Fast & Lightweight** – Real-time performance on consumer hardware.  
 - 🧩 **Model Flexibility** – Supports GGUF, GPTQ, and other formats with Hugging Face & Ollama integration.  
 - 🖥️ **Developer Ready** – Use Nectar as your intelligent backend for automation, coding, content creation, or research.  
-- 🛠️ **Built on Zashirion AI Engine** – With an intuitive UI and powerful API layer for embedding into custom workflows.  
+- 🛠️ **Built on Zashirion AI Engine** – With an intuitive UI and powerful API layer for embedding into custom workflows.
+- 🤖 **Custom Agents** – Build AI agents with unique instructions, knowledge, and actions.
+- 🌍 **Web Search** – Integrates Google, duckduckgo, and microsoft edge scrapers.
+- 🔍 **RAG (Retrieval-Augmented Generation)** – Hybrid search + knowledge graph for uploaded files & connected data sources.
+- 🔬 **Deep Research** – Multi-step, agentic search for in-depth answers.
+- ▶️ **Actions & MCP** – Allow AI agents to interact with external systems.
+- 💻 **Code Interpreter** – Execute Python for data analysis, graphing, and file generation.
+- 🎨 **Image Generation** – Create images from user prompts.
+- 👥 **Collaboration Tools** – Chat sharing, feedback, user management, usage analytics, and more.
+-  ✅ **Ideal for**: developers, researchers, cybersecurity experts, and power users who want **AI without sacrificing privacy or control**.
 
-✅ **Ideal for**: developers, researchers, cybersecurity experts, and power users who want **AI without sacrificing privacy or control**.  
+Nectar-X-Studio works with all LLM Models (OpenAI's GPT, Mistral, meta's llama, etc.) and self-hosted models (Ollama, vLLM, etc.).
 
 ---
 
@@ -42,27 +51,5 @@ def send_to_AlphaLLM(question):
         return f"[Error] Could not connect to AlphaLLM: {e}"
 ```
 
-Nectar-X-Studio is the extended, feature-rich edition of Nectar—your self-hosted LLM inference suite for building agents, connecting knowledge, and performing deep research.
-
-🔥 Advanced Features
-
-🤖 Custom Agents – Build AI agents with unique instructions, knowledge, and actions.
-
-🌍 Web Search – Integrates Google PSE, Exa, Serper, Firecrawl, and in-house scrapers.
-
-🔍 RAG (Retrieval-Augmented Generation) – Hybrid search + knowledge graph for uploaded files & connected data sources.
-
-🔄 Connectors – Access 40+ apps for knowledge, metadata, and information retrieval.
-
-🔬 Deep Research – Multi-step, agentic search for in-depth answers.
-
-▶️ Actions & MCP – Allow AI agents to interact with external systems.
-
-💻 Code Interpreter – Execute Python for data analysis, graphing, and file generation.
-
-🎨 Image Generation – Create images from user prompts.
-
-👥 Collaboration Tools – Chat sharing, feedback, user management, usage analytics, and more.
 
 
-Nectar-X-Studio works with all LLM Models (OpenAI's GPT, Mistral, meta's llama, etc.) and self-hosted models (Ollama, vLLM, etc.).
