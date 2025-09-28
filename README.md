@@ -2,7 +2,7 @@
 
 ![NectarX](https://github.com/user-attachments/assets/dc85d6ad-018f-4899-ac13-631c5ee8901f)  
 
-**Nectar** is a powerful, Local AI-Inferencing application that allows the user download create and run agents and rum  **large language models** on your own machine.  
+**Nectar** is a powerful, Local AI-Inferencing application that allows the user download create and run agents and run  **large language models** on your own machine.  
 
 With **no internet connection required**, Nectar ensures **privacy-first, high-performance inference** using cutting-edge open-source models from **Hugging Face, Ollama, and beyond**.  
 
