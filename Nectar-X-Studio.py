@@ -1,11 +1,13 @@
-# Decompiled with PyLingual (https://pylingual.io)
-# Internal filename: nect-hun4.py
-# Bytecode version: 3.9.0beta5 (3425)
-# Source timestamp: 1970-01-01 00:00:00 UTC (0)
-
-"""\nLicense Key: CIRB-5002-NGWG-4132\nUnique Numerical Signature: 4153318607422408869\nSeriel No: D51CD0192107E1E6F03746B510264E29\n"""
+"""
+\nLicense Key: CIRB-5002-NGWG-4132
+\nUnique Numerical Signature: 4153318607422408869
+\nSeriel No: D51CD0192107E1E6F03746B510264E29
+\n
+"""
 global _logger_initialized  # inserted
+
 Encoded_License_Details = 'eyJsaWNlbnNvciI6ICJaYXNoaXJpb24gaW5jIiwgImxpY2Vuc2Vfa2V5IjogIkNJUkItNTAwMi1OR1dHLTQxMzIiLCAiZXhwaXJhdGlvbl9kYXRlIjogIjIwMjctMTItMjMifQ=='
+
 import asyncio
 import pygame
 from PyQt6.QtWebEngineWidgets import QWebEngineView
