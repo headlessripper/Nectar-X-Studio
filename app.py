@@ -2714,8 +2714,8 @@ class Engine_Holder(QWidget):
         except Exception as e:
             self.show_notification(f'❌ Error during termination: {e}')
         
-ACCESS_TOKEN = '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'
-token = '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'
+ACCESS_TOKEN = 'ACCESS_TOKEN'
+token = 'ACCESS_TOKEN'
 
 class RepoSearchThread(QThread):
     search_complete = pyqtSignal(list)
