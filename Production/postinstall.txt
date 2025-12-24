@@ -1,0 +1,5 @@
+Thank you for installing Nectar-X-Client!
+
+You can now launch the app from the Start Menu or Desktop shortcut.
+
+For support or updates, visit: https://github.com/Zashiron

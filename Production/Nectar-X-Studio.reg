@@ -1,0 +1,35 @@
+Windows Registry Editor Version 5.00
+
+; --------------------------------------------------
+; Nectar-X-Studio Registry Settings
+; Author: Zashiron
+; Version: 1.4
+; Target: Windows 11
+; --------------------------------------------------
+
+; Application Settings
+[HKEY_CURRENT_USER\Software\Zashiron\Nectar-X-Studio]
+"InstallPath"="C:\\Program Files\\Nectar-X-Studio"
+"Version"="1.3"
+"LicenseType"="Proprietary"
+"LicenseAccepted"=dword:00000001
+"LastRun"="2025-12-20"
+"UserSettingsPath"="C:\\Program Files\\Nectar-X-Studio"
+
+; Uninstaller Registration - Add/Remove Programs
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Nectar-X-Studio]
+"DisplayName"="Nectar-X-Studio"
+"Publisher"="Zashiron"
+"DisplayVersion"="1.4"
+"InstallLocation"="C:\\Program Files\\Nectar-X-Studio"
+"UninstallString"="\"C:\\Program Files\\Nectar-X-Studio\\uninstall.exe\""
+"EstimatedSize"=dword:00500000
+"NoModify"=dword:00000001
+"NoRepair"=dword:00000001
+"SystemComponent"=dword:00000000
+"HelpLink"="https://github.com/Zashiron"
+"URLInfoAbout"="https://github.com/Zashiron"
+
+; Optional: File associations (if your app opens custom file types)
+;[HKEY_CURRENT_USER\Software\Classes\.nxs]
+;"Default"="Nectar-X-Studio.File"
