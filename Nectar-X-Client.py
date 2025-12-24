@@ -5,24 +5,17 @@ import os
 import subprocess
 import platform
 import socket
-import tempfile
-import zipfile
 import traceback
 import ctypes
-import shutil
 import psutil
 import re
 import requests
 import time
-from urllib.parse import urlparse
-from urllib.request import urlopen
-from datetime import datetime
-import datetime
-import base64
 import json
 import warnings
 import multiprocessing
 import threading
+import markdown
 
 from edge_tts import Communicate
 
@@ -30,23 +23,19 @@ from edge_tts import Communicate
 # PyQt6
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QProgressBar, QPushButton,
-    QSpacerItem, QSizePolicy, QSplashScreen, QLineEdit, QGridLayout, QMessageBox,
-    QTextEdit, QCheckBox, QHBoxLayout, QFrame, QSpinBox, QFileDialog, QInputDialog,
-    QPlainTextEdit, QSplitter, QStackedWidget, QStackedLayout, QFormLayout, QListWidget,
-    QSlider, QScrollArea, QGraphicsOpacityEffect, QListWidgetItem, QComboBox, QGroupBox,
-    QTabWidget, QCompleter, QStatusBar, QSystemTrayIcon, QMenu, QToolTip, QToolButton,
-    QDialogButtonBox, QDialog, QDoubleSpinBox
+    QSizePolicy, QLineEdit, QGridLayout, QHBoxLayout, QFrame, QScrollArea, QGraphicsOpacityEffect,
+    QCompleter, QSystemTrayIcon, QMenu, QToolButton,
 )
 from PyQt6.QtCore import (
-    Qt, QTimer, QSharedMemory, QSystemSemaphore, QThread, pyqtSignal, QElapsedTimer,
-    QObject, QSize, QRegularExpression, QProcess, QPropertyAnimation, QEvent,
-    QFileSystemWatcher, QStringListModel, QPoint, QUrl, QEasingCurve, QVariantAnimation, QRect,
-    pyqtProperty, pyqtSlot # Added pyqtSlot for completeness although not explicitly imported
+    Qt, QTimer, QThread, pyqtSignal, QElapsedTimer,
+    QSize, QPropertyAnimation, QEvent,
+    QStringListModel, QPoint, QUrl, QEasingCurve, QVariantAnimation,
+    pyqtProperty, pyqtSlot
 )
 from PyQt6.QtGui import (
-   QIcon , QFont, QPixmap, QPainter, QPainterPath, QDesktopServices, QShortcut,
-    QColor, QSyntaxHighlighter, QTextCharFormat, QTextCursor, QTextFormat, QAction,
-    QPen, QKeySequence, QGuiApplication, QCursor, QBrush, QImage
+   QIcon , QFont, QPixmap, QPainter,  QShortcut,
+    QColor, QAction,
+    QKeySequence, QGuiApplication, QBrush
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 
@@ -60,6 +49,75 @@ import webbrowser
 
 # Other
 QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+
+TAG_RE = re.compile(r"<.*?>")
+
+def html_to_text(html: str) -> str:
+    text = TAG_RE.sub("", html)
+    text = text.replace("&nbsp;", " ")
+    return text.strip()
+
+from mdx_linkify.mdx_linkify import LinkifyExtension
+
+SECTION_PATTERNS = {
+    r"key findings": "## Key Findings",
+    r"actionable steps": "## Actionable Steps",
+    r"sources? & context": "## Sources & Context",
+    r"analysis": "## Analysis",
+    r"urls?": "## Urls",
+}
+
+def beautify_markdown(text: str) -> str:
+    text = re.sub(
+        r"(Key Findings)\s*(\d+\.)",
+        r"\1\n\2",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    text = re.sub(r"\s*##\s*", r"\n\n## ", text)
+
+    raw_lines = text.splitlines()
+    out = []
+
+    for raw in raw_lines:
+        line = raw.strip()
+        if not line:
+            continue
+
+        lowered = line.lower()
+        replaced = False
+
+        for pat, heading in SECTION_PATTERNS.items():
+            m = re.search(pat, lowered)
+            if m:
+                before = line[:m.start()].strip()
+                after = line[m.end():].strip()
+
+                if before:
+                    out.append(before)
+
+                out.append("")
+                out.append(heading)
+                out.append("")
+
+                if after:
+                    out.append(after)
+                replaced = True
+                break
+
+        if replaced:
+            continue
+
+        line = re.sub(r"(?<!\n)(\d+\.\s+)", r"\n\1", line)
+
+        for subline in line.split("\n"):
+            subline = subline.strip()
+            if not subline:
+                continue
+            out.append(subline)
+
+    return "\n".join(out).strip()
 
 # ----------------- UTILITY FUNCTIONS -----------------
 def is_admin():
@@ -172,9 +230,10 @@ def find_exe():
         exe_name = exe_name1
         possible_paths = [
             os.path.join(script_dir, exe_name),
-            os.path.join(script_dir, "Utils", exe_name),
+            os.path.join(script_dir, "Utils/ChatServe", exe_name),
             os.path.abspath(os.path.join(script_dir, os.pardir, exe_name))
         ]
+        print(possible_paths)
     elif sys.platform.startswith("linux"):
         exe_name = exe_name2
         possible_paths = [
@@ -205,7 +264,7 @@ def find_utils4(icon_name):
         for path in possible_paths:
             if os.path.exists(path):
                 return path
-        else:  # inserted
+        else:  
             return None
 
 import warnings
@@ -214,13 +273,13 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 from datetime import datetime
 
 def find_icon(icon_name):
-    """Attempts to find the icon in and out of the script\'s directory."""  # inserted
+    """Attempts to find the icon in and out of the script\'s directory."""  
     script_dir = os.path.dirname(os.path.realpath(__file__))
     possible_paths = [os.path.join(script_dir, icon_name), os.path.join(script_dir, 'background', icon_name), os.path.abspath(os.path.join(script_dir, os.pardir, icon_name))]
     for path in possible_paths:
         if os.path.exists(path):
             return path
-    else:  # inserted
+    else:  
         return None
 
 # Mapping folder names to icon file paths
@@ -262,30 +321,6 @@ def check_browser_agent():
         print(f"{exe_name} started successfully from: {exe_path}")
     except Exception as e:
         raise Exception(f"Failed to start {exe_name}: {e}")
-
-def send_to_AlphaLLM(question):
-    import socket
-    
-    SERVER_ADDRESS = ('127.0.0.1', 5005)
-    AUTH_KEY = ("NEC-892657") # 🔒 Security Key  # must match the server’s key
-
-    try:
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #client.settimeout(10)  # optional safety timeout
-        client.connect(SERVER_ADDRESS)
-
-        # Prepend the key before the question
-        secure_message = f"{AUTH_KEY} {question}"
-        client.sendall(secure_message.encode('utf-8'))
-
-        response = client.recv(8192).decode('utf-8').strip()
-        client.close()
-
-        return response
-
-    except (socket.error, socket.timeout) as e:
-        return f"[Error] Could not connect to AlphaLLM: {e}"
-    
 class FloatingNotification(QWidget):
     def __init__(self, parent, message, duration=120000, bg_color='#222222', text_color='#ffffff'):
         super().__init__(parent)
@@ -383,7 +418,7 @@ class AnimatedDot(QLabel):
         direction = self._radius_anim.direction()
         if direction == QPropertyAnimation.Direction.Forward:
             self._radius_anim.setDirection(QPropertyAnimation.Direction.Backward)
-        else:  # inserted
+        else:  
             self._radius_anim.setDirection(QPropertyAnimation.Direction.Forward)
         self._radius_anim.start()
 
@@ -391,7 +426,7 @@ class AnimatedDot(QLabel):
         direction = self._opacity_anim.direction()
         if direction == QPropertyAnimation.Direction.Forward:
             self._opacity_anim.setDirection(QPropertyAnimation.Direction.Backward)
-        else:  # inserted
+        else:  
             self._opacity_anim.setDirection(QPropertyAnimation.Direction.Forward)
         self._opacity_anim.start()
 
@@ -408,7 +443,7 @@ class AnimatedDot(QLabel):
             self._radius_anim.start()
             self._opacity_anim.setDirection(QPropertyAnimation.Direction.Forward)
             self._opacity_anim.start()
-        else:  # inserted
+        else:  
             self.setToolTip('Engine Status: OFFLINE - Please Loaded A Model, Click to Auto Run Last Loaded Model.')
             self.show_notification('NO Model Loaded, Please Loaded A Model.')
             self._color_anim.setDirection(QVariantAnimation.Direction.Backward)
@@ -464,7 +499,7 @@ class AnimatedDot(QLabel):
                 communicate = Communicate(text=text, voice='en-US-JennyNeural', rate='+20%')
                 await communicate.save(output_file)
             asyncio.run(generate_tts())
-            while True:  # inserted
+            while True:  
                 while not (os.path.exists(output_file) and os.path.getsize(output_file) > 0):
                     time.sleep(0.1)
             try:
@@ -476,7 +511,7 @@ class AnimatedDot(QLabel):
                     pygame.time.Clock().tick(10)
             except Exception as e:
                 write_to_log(f'[Error during playback] {e}', file_path='logs/errors.log')
-            finally:  # inserted
+            finally:  
                 try:
                     pygame.mixer.music.stop()
                     pygame.mixer.quit()
@@ -487,7 +522,7 @@ class AnimatedDot(QLabel):
                     os.remove(output_file)
                 except Exception as e:
                     write_to_log(f'[Error deleting output file] {e}', file_path='logs/errors.log')
-            else:  # inserted
+            else:  
                 pass  # postinserted
             try:
                 pygame.mixer.music.stop()
@@ -560,13 +595,13 @@ MAX_HISTORY = 5
 DEFAULT_SUGGESTIONS = ['cmd', 'notepad', 'control panel', 'task manager', 'settings', 'chrome', 'edge', 'word', 'device manager']
 
 def find_icon(icon_name):
-    """Attempts to find the icon in and out of the script\'s directory."""  # inserted
+    """Attempts to find the icon in and out of the script\'s directory."""  
     script_dir = os.path.dirname(os.path.realpath(__file__))
     possible_paths = [os.path.join(script_dir, icon_name), os.path.join(script_dir, 'background', icon_name), os.path.abspath(os.path.join(script_dir, os.pardir, icon_name))]
     for path in possible_paths:
         if os.path.exists(path):
             return path
-    else:  # inserted
+    else:  
         return None
     
 # ----------------------- DOWNLOAD THREAD -----------------------
@@ -933,12 +968,12 @@ class DetachableWebView(QWidget):
             icon_path = find_icon('background/NectarX.png')
             if icon_path:
                 self.detached_window.setWindowIcon(QIcon(icon_path))
-            else:  # inserted
+            else:  
                 self.detached_window.setWindowIcon(QIcon('background/NectarX.png'))
                 self.detach_button.setText('Dock')
                 self.hide()
             self.detached_window.closeEvent = self.handle_detached_close
-        else:  # inserted
+        else:  
             self.web_view.setParent(self)
             self.layout.addWidget(self.web_view)
             self.show()
@@ -1051,7 +1086,7 @@ class StatusBar(QWidget):
         if net_info['connected']:
             self.net_status_dot.set_color('#ffffff')
             self.net_status_label.setText(f"{net_info['iface_name']}")
-        else:  # inserted
+        else:  
             self.net_status_dot.set_color('#d9534f')
             self.net_status_label.setText('No Network')
 
@@ -1067,7 +1102,7 @@ class StatusBar(QWidget):
                 has_ip = any((snic.family in (socket.AF_INET, socket.AF_INET6) for snic in iface_addrs))
                 if has_ip:
                     return {'connected': True, 'iface_name': iface_name}
-            else:  # inserted
+            else:  
                 return {'connected': False, 'iface_name': None}
         except Exception:
             return {'connected': False, 'iface_name': None}
@@ -1109,7 +1144,7 @@ class Loader1(QWidget):
             color.setAlpha(180)
             painter.setBrush(QBrush(color))
 
-            # ✅ Cast to int for PyQt6 compatibility
+            # Cast to int for PyQt6 compatibility
             painter.drawEllipse(
                 int(x - circle['radius'] / 2),
                 int(y - circle['radius'] / 2),
@@ -1129,22 +1164,79 @@ class Loader1(QWidget):
                 circle['angle'] -= 360
         self.update()
 
-from PyQt6.QtCore import QThread, pyqtSignal
-import socket
+#------------------------------------------------------------------------------
+# Class Threads / Signal
+#------------------------------------------------------------------------------
 
-class ChatWorker6(QThread):
-    result_signal = pyqtSignal(str)  # ✅ define signal
+AUTH_KEY = "NEC-892657"
 
-    def __init__(self, user_command):
-        super().__init__()
-        self.user_command = user_command
+class StreamClientWorker(QThread):
+    chunk_received = pyqtSignal(str)
+    finished_response = pyqtSignal(str)
+
+    def __init__(self, prompt: str, parent=None):
+        super().__init__(parent)
+        self.prompt = prompt
+        self._stop = False
+        self._sock = None
 
     def run(self):
-        reply = send_to_AlphaLLM(self.user_command)
+        s = None
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._sock = s
+            s.connect(("127.0.0.1", 5005))
 
-        # Emit response back to the main thread
-        self.result_signal.emit(reply)
+            payload = f"{AUTH_KEY} {self.prompt}".encode("utf-8")
+            s.sendall(payload)
 
+            buffer = b""
+
+            while not self._stop:
+                try:
+                    data = s.recv(1024)
+                except OSError:
+                    # server closed or network issue
+                    break
+
+                if not data:
+                    # server closed connection gracefully
+                    break
+
+                buffer += data
+
+                if b"<<END_OF_RESPONSE>>" in buffer:
+                    # emit anything before marker
+                    before, _marker, _after = buffer.partition(b"<<END_OF_RESPONSE>>")
+                    if before:
+                        chunk = before.decode("utf-8", errors="ignore")
+                        self.chunk_received.emit(chunk)
+                    break
+
+                chunk = data.decode("utf-8", errors="ignore")
+                self.chunk_received.emit(chunk)
+
+        except Exception as e:
+            self.finished_response.emit(f"Error: {e}")
+        finally:
+            if s is not None:
+                try:
+                    # tell server we are done reading
+                    s.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                s.close()
+            # signal completion once
+            self.finished_response.emit("")
+
+    def stop(self):
+        self._stop = True
+        # optional: also nudge socket to unblock recv
+        if self._sock is not None:
+            try:
+                self._sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
 class PersistentTooltip(QLabel):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
@@ -1163,8 +1255,9 @@ class PersistentTooltip(QLabel):
         self.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMaximumWidth(400)
-        self.setMinimumWidth(200)
-        self.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setMinimumWidth(230)
+        self.setWindowFlags(Qt.WindowType.Dialog)
+        self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.adjustSize()
         self._drag_active = False
@@ -1229,8 +1322,8 @@ class ClickableCard(QWidget):
         # Reduced spacing in layout
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        layout.setContentsMargins(5, 5, 5, 5)  # smaller margins
-        layout.setSpacing(2)  # reduce spacing between icon and label
+        layout.setContentsMargins(5, 5, 5, 5) 
+        layout.setSpacing(2)  
         self.setLayout(layout)
 
         # --- Icon ---
@@ -1708,7 +1801,7 @@ class Assets(QWidget):
         icon_path = find_icon('background/NectarX.png')
         if icon_path:
             self.setWindowIcon(QIcon(icon_path))
-        else:  # inserted
+        else:  
             self.setWindowIcon(QIcon('background/NectarX.png'))
         self.threadpool = QThreadPool.globalInstance()
 
@@ -1826,11 +1919,11 @@ class Assets(QWidget):
         news_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         news_layout = QVBoxLayout(news_container)
         news_layout.setSpacing(20)
-        # Try to check/start the browser agent, but continue even if it fails
+        # Try to check/start the agent, but continue even if it fails
         try:
             check_browser_agent()
         except Exception as e:
-            print(f"[Warning] ChatServe not found or failed to start: {e}")
+            Notify(f"[Warning] ChatServe not found or failed to start: {e}", parent=self)
             # Continue running the app regardless
 
         def create_quick_button(icon_path, callback):
@@ -1853,7 +1946,7 @@ class Assets(QWidget):
         self.search_bar = QLineEdit(self)
         self.search_bar.setFixedHeight(50)
         self.search_bar.setPlaceholderText('Ask AI')
-        self.search_bar.returnPressed.connect(self.execute_command)
+        self.search_bar.returnPressed.connect(self.send_message)
         self.search_bar.setStyleSheet('padding: 10px; font-size: 14px; border-radius: 5px; color: white; background-color: #000000;')
         self.search_bar.setContentsMargins(0, 0, 0, 0)
         news_layout.addWidget(self.search_bar)
@@ -1966,22 +2059,6 @@ class Assets(QWidget):
         end_label.setStyleSheet('color: white;')
         end_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        icon_path = find_icon('background/NectarX.png')
-        if icon_path and os.path.exists(icon_path):
-            self.tray_icon = QSystemTrayIcon(QIcon(icon_path), self)
-            self.tray_icon.show()
-        else:
-            print("[INFO] Tray icon skipped (icon not found)")
-        tray_menu = QMenu()
-        restore_action = QAction('Restore', self)
-        restore_action.triggered.connect(self.show)
-        exit_action = QAction('Exit', self)
-        exit_action.triggered.connect(QApplication.quit)
-        tray_menu.addAction(restore_action)
-        tray_menu.addAction(exit_action)
-        self.tray_icon.setContextMenu(tray_menu)
-        self.tray_icon.show()
-
         main_layout.addWidget(scroll_area)
         main_layout.addWidget(end_label)
         self.timer = QTimer(self)
@@ -2079,11 +2156,10 @@ class Assets(QWidget):
         for path in possible_paths:
             if os.path.exists(path):
                 return path
-        else:  # inserted
+        else:  
             return None
 
     def open_Nectar(self):
-        # Paths to search for Nectar-X-Studio.exe
         self.check_core_models_installed_once()
         self.check_core_installed()
         possible_paths = [
@@ -2190,37 +2266,53 @@ class Assets(QWidget):
         overlay_layout.addWidget(self.loader)
 
     def resizeEvent(self, event):
-        """Ensure overlay resizes with the main window."""  # inserted
+        """Ensure overlay resizes with the main window."""  
         self.overlay.setGeometry(self.rect())
         super().resizeEvent(event)
 
     def last_func(self):
         self.overlay.setVisible(False)
 
-    def execute_command(self):
-        user_command = self.search_bar.text().strip()
-        if user_command.lower() == 'clear':
-            self.search_bar.clear()
-        elif user_command:
-            self.overlay.setVisible(True)
-            self.search_bar.clear()
+    def send_message(self):
+        user_text = self.search_bar.text().strip()
+        if not user_text:
+            return
 
-            self.worker = ChatWorker6(user_command)
-            self.worker.result_signal.connect(self.on_result_received)
-            self.worker.finished.connect(lambda: self.overlay.setVisible(False))
-            self.worker.start()
-
-    def on_result_received(self, result):
-        if result == 'No output from command.':
-            tooltip_text = 'Retry'
-        else:  # inserted
-            tooltip_text = f'{result}'
-            self.overlay.setVisible(False)
+        # Create tooltip
         icon_path101 = find_icon('NectarX.ico')
-        tooltip_text = f'<img src=\"{icon_path101}\" width=\"32\" height=\"32\" style=\"vertical-align:middle; margin-right:30px;\"> <span style=\"font-size:20px; margin-left:30px; font-weight:bold; display:inline-block; text-align:center; width:100%; \">Nectar-X-Studio</span> <br> {result}'
-        tooltip = PersistentTooltip(tooltip_text, self)
+        initial_html = f'<img src="{icon_path101}" width="32" height="32" style="vertical-align:middle; margin-right:30px;"> <span style="font-size:20px; margin-left:30px; font-weight:bold;">Nectar-X-Studio</span><br>'
+        tooltip = PersistentTooltip(initial_html, self)
+        tooltip._plain_text = ""  # initialize
         global_pos = self.search_bar.mapToGlobal(QPoint(0, -tooltip.height()))
         tooltip.show_for_duration(global_pos, duration_ms=300000)
+
+        # Start streaming
+        self.stream_worker = StreamClientWorker(user_text, parent=self)
+
+        def on_chunk(chunk: str):
+            if not chunk:
+                return
+            tooltip._plain_text += chunk
+
+            pretty_md = beautify_markdown(tooltip._plain_text)
+            html = markdown.markdown(
+                pretty_md,
+                extensions=["extra", "sane_lists", "nl2br", LinkifyExtension()]
+            )
+
+            # Update tooltip
+            tooltip.setText(initial_html + html)
+            tooltip.setTextFormat(Qt.TextFormat.RichText)
+            tooltip.adjustSize()  # adjust for new content
+
+        def on_finished(final_text: str):
+            tooltip._plain_text = final_text or tooltip._plain_text
+            tooltip.adjustSize()
+
+        # Connect signals
+        self.stream_worker.chunk_received.connect(on_chunk)
+        self.stream_worker.finished_response.connect(on_finished)
+        self.stream_worker.start()
 
     def add_news_section(self, layout, title, default_url, zoom_key, url_key, min_height=300):
         # Section label
@@ -2486,11 +2578,11 @@ def relaunch_as_admin():
         traceback.print_exc()
         return False
 
-# ----------------- Your main app code -----------------
+# ----------------- main -----------------
 def start_app():
     app = QApplication(sys.argv)
 
-    # Try to check/start the browser agent, but continue even if it fails
+    # Try to check/start the agent, but continue even if it fails
     try:
         check_browser_agent()
     except Exception as e:
@@ -2516,7 +2608,6 @@ def main():
     start_app()
 
 if __name__ == "__main__":
-    # If packaging with multiprocessing on Windows and freezing, keep this
     import multiprocessing
     multiprocessing.freeze_support()
     main()

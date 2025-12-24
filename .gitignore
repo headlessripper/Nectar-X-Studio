@@ -5,3 +5,5 @@ venv
 output
 App
 Archive
+logs
+web_profile

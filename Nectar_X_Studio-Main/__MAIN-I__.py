@@ -96,12 +96,12 @@ import uuid, hashlib, psutil
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QProgressBar, QPushButton,
-    QSpacerItem, QSizePolicy, QLineEdit, QGridLayout, QMessageBox,
+    QSizePolicy, QLineEdit, QGridLayout, QMessageBox,
     QTextEdit, QCheckBox, QHBoxLayout, QFrame, QFileDialog, QInputDialog,
-    QPlainTextEdit, QSplitter, QStackedWidget, QStackedLayout, QFormLayout,
+    QPlainTextEdit, QStackedWidget, QStackedLayout, QFormLayout,
     QSlider, QScrollArea, QGraphicsOpacityEffect, QListWidgetItem, QComboBox, QGroupBox,
-    QTabWidget, QCompleter, QMenu, QToolTip, QToolButton,
-    QDialogButtonBox, QDialog
+    QTabWidget, QCompleter, QMenu,
+    QDialogButtonBox, QDialog, QSystemTrayIcon
 )
 from PyQt6.QtCore import (
     Qt, QTimer, QThread, pyqtSignal, QElapsedTimer,
@@ -3084,7 +3084,7 @@ class RightPanel(QWidget):
 
         license_info = {
             "SOFTWARE OWNER": "Zashiron Inc",
-            "DEVELOPER": "Samuel Ikenna Great",
+            "DEVELOPER": "Ikenna Christian Great",
             "CONTACT": "Zashiron.inc@gmail.com",
             "LICENSE": f"verified by {license_data.get('licensor', 'Unknown')}.",
             "EXPIRES": f"{license_data.get('expiration_date', 'N/A')}"
@@ -6663,48 +6663,54 @@ class LLM_Engine(QWidget):
     def handle_client(self, client_socket):
         self.stop_lay()
         AUTH_KEY = "NEC-892657"
+
         try:
             data = client_socket.recv(8192).decode('utf-8').strip()
             if not data:
-                client_socket.send(b'No data received')
+                # client may already be gone; best effort send, then return
+                try:
+                    client_socket.send(b'No data received')
+                except OSError:
+                    pass
                 return
 
             if not data.startswith(AUTH_KEY):
-                client_socket.send(b"Unauthorized")
+                try:
+                    client_socket.send(b"Unauthorized")
+                except OSError:
+                    pass
                 return
 
             data = data[len(AUTH_KEY):].strip()
 
             if data.startswith('LOAD_MODEL::'):
                 self.append_message('user', data)
-                client_socket.send(b'OK')
+                try:
+                    client_socket.send(b'OK')
+                except OSError:
+                    pass
                 return
 
-            # Store user's input
+            # ---------------- CORE LOGIC ----------------
             self.append_message('user', data)
 
-            # Retrieve all messages from RAM
-            query = data  # from client
+            query = data
             conversation_list = self.read_all_messages()
-
-            # Default system behavior
             conversation_list.insert(0, sys_msgs.NORMAL_SYSTEM_PROMPT)
 
-            # RAG retrieval
             if hasattr(self, "rag_engine"):
                 retrieved_docs = self.rag_engine.retrieve(data)
-                # Include retrieved documents in conversation
                 for doc in retrieved_docs:
-                    conversation_list.append({"role": "system", "content": f"[Context] {doc}"})
-                #Inform(f"Loading Model... Found context: {retrieved_docs}", parent=self)
+                    conversation_list.append(
+                        {"role": "system", "content": f"[Context] {doc}"}
+                    )
 
-            # 🤖 Ask model if web search is needed *before* generating query
             use_web = model_decides_web_rag(self.llm_instance, query)
 
             if use_web:
-                # 🔎 Generate search query *only when needed*
                 search_query = query_generator(query)
                 search_query = search_query.strip().strip('"')
+
                 toast = Notification(
                     app_id="Nectar-X-Studio",
                     title="AI Auto-Generated WebRAG Query",
@@ -6715,12 +6721,9 @@ class LLM_Engine(QWidget):
                 toast.set_audio(audio.SMS, loop=False)
                 toast.show()
 
-                # Switch system prompt to elite web mode
                 conversation_list.insert(0, WEB_RAG_SYSTEM_PROMPT)
 
                 web_rag = WebRAG(self.rag_engine)
-
-                # ALWAYS USE GENERATED SEARCH QUERY
                 web_rag.add_web_docs(search_query, num_results=10, recent="d7")
 
                 web_docs = self.rag_engine.retrieve(search_query, top_k=10)
@@ -6744,21 +6747,38 @@ class LLM_Engine(QWidget):
                 if "content" in delta:
                     token = delta["content"]
                     full_reply.append(token)
-                    # stream tokens for real-time UI
-                    client_socket.send(token.encode("utf-8"))
+                    try:
+                        client_socket.sendall(token.encode("utf-8"))
+                    except (ConnectionAbortedError,
+                            ConnectionResetError,
+                            BrokenPipeError,
+                            OSError) as e:
+                        # client disconnected; stop streaming and exit loop
+                        print(f"[handle_client] client disconnected while streaming: {e}")
+                        break
 
-            # join, encode, and send end marker
+            # If client is still connected, try to send end marker and store reply
             reply = "".join(full_reply).strip()
-            client_socket.sendall(b"\n<<END_OF_RESPONSE>>")  # End marker only at finish
+            try:
+                client_socket.sendall(b"\n<<END_OF_RESPONSE>>")
+            except (ConnectionAbortedError,
+                    ConnectionResetError,
+                    BrokenPipeError,
+                    OSError) as e:
+                print(f"[handle_client] client disconnected before end marker: {e}")
 
-            # Store response in memory
-            self.append_message('assistant', reply)
+            if reply:
+                self.append_message('assistant', reply)
 
         except Exception as e:
-            client_socket.send(f"Error: {e}".encode('utf-8'))
+            # Do NOT try to send error back over possibly-dead socket
+            print(f"[handle_client] unexpected error: {e}")
 
         finally:
-            client_socket.close()
+            try:
+                client_socket.close()
+            except OSError:
+                pass
 
     def terminate(self):
         """Terminate the server and clean up resources."""
@@ -8764,9 +8784,43 @@ class MainWindow(QMainWindow):
             QScrollArea { background: transparent; }
         ''')
 
+        icon_path = find_icon('background/NectarX.png')
+        if icon_path and os.path.exists(icon_path):
+            self.tray_icon = QSystemTrayIcon(QIcon(icon_path), self)
+            self.tray_icon.show()
+        else:
+            print("[INFO] Tray icon skipped (icon not found)")
+        tray_menu = QMenu()
+
+        restore_action = QAction('Restore', self)
+        restore_action.triggered.connect(self.show)
+
+        exit_action = QAction('Exit', self)
+        exit_action.triggered.connect(QApplication.quit)
+
+        tray_menu.addAction(restore_action)
+        tray_menu.addAction(exit_action)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+
         # Authentication setup
         self.Auth()
         self.check_existing_user()
+
+    # ------------------------------
+    # Override closeEvent to hide
+    # ------------------------------
+    def closeEvent(self, event):
+        """Instead of closing, hide window and keep in tray."""
+        event.ignore()  # ignore the close
+        self.hide()     # hide the window
+        self.tray_icon.showMessage(
+            "Nectar-X-Studio",
+            "Application minimized to tray. Double-click the tray icon to restore.",
+            QSystemTrayIcon.MessageIcon.Information,
+            3000  # duration in ms
+        )
 
     # ------------------------------------------------------------
     # Lock Screen / Authentication
