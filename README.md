@@ -36,6 +36,8 @@ Nectar-X-Studio works with all LLM Models (OpenAI's GPT, Mistral, meta's llama, 
 ## ROC-M
       `pip install "llama-cpp-python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/rocm6.0`
 
+## CPU
+      `pip install llama-cpp-python==0.3.4`
 
 # Engine Design: 
 
