@@ -30,7 +30,12 @@ Whether you’re generating natural language, analyzing text, or embedding AI in
 Nectar-X-Studio works with all LLM Models (OpenAI's GPT, Mistral, meta's llama, etc.) and self-hosted models (Ollama, vLLM, etc.).
 
 # Install LLAM CPP:
-  `pip install "llama-cpp-python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121`
+## CUDA:
+      `pip install "llama-cpp-python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121`
+
+## ROC-M
+      `pip install "llama-cpp-python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/rocm6.0`
+
 
 # Engine Design: 
 
