@@ -6425,8 +6425,8 @@ class LLM_Engine(QWidget):
     #        QMessageBox.warning(self, "RAG Not Ready", "Start the LLM server first.")
     #        return
     #    
-    #    #API_KEY = "AIzaSyD4Au69N-YV36kXA3g1YQcD-n55jpFf6Y8"
-    #    #CX = "028c5f61bafcb4194"
+    #    #API_KEY = "google api key here"
+    #    #CX = "search engine id here"
 #
     #    web_rag = WebRAG(self.rag_engine)
     #    web_rag.add_web_docs(query, num_results=5)
