@@ -1172,71 +1172,63 @@ AUTH_KEY = "NEC-892657"
 
 class StreamClientWorker(QThread):
     chunk_received = pyqtSignal(str)
-    finished_response = pyqtSignal(str)
+    finished_response = pyqtSignal()
 
-    def __init__(self, prompt: str, parent=None):
-        super().__init__(parent)
+    def __init__(self, prompt: str):
+        super().__init__()
         self.prompt = prompt
         self._stop = False
         self._sock = None
+        self._finished = False  # 🔐 single-exit lock
 
     def run(self):
-        s = None
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._sock = s
-            s.connect(("127.0.0.1", 5005))
-
-            payload = f"{AUTH_KEY} {self.prompt}".encode("utf-8")
-            s.sendall(payload)
+            self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._sock.connect(("127.0.0.1", 5005))
+            self._sock.sendall(f"{AUTH_KEY} {self.prompt}".encode())
 
             buffer = b""
 
             while not self._stop:
-                try:
-                    data = s.recv(1024)
-                except OSError:
-                    # server closed or network issue
-                    break
-
+                data = self._sock.recv(8192)
                 if not data:
-                    # server closed connection gracefully
                     break
 
                 buffer += data
-
+                
+                # 🔥 Check for end marker FIRST - single pass logic
                 if b"<<END_OF_RESPONSE>>" in buffer:
-                    # emit anything before marker
-                    before, _marker, _after = buffer.partition(b"<<END_OF_RESPONSE>>")
+                    before, _, remaining = buffer.partition(b"<<END_OF_RESPONSE>>")
                     if before:
-                        chunk = before.decode("utf-8", errors="ignore")
-                        self.chunk_received.emit(chunk)
-                    break
+                        self.chunk_received.emit(before.decode("utf-8", errors="ignore"))
+                    buffer = remaining  # Handle trailing data if any
+                    self._emit_finished()
+                    return  # 🔥 EXIT THREAD
 
-                chunk = data.decode("utf-8", errors="ignore")
-                self.chunk_received.emit(chunk)
+                # No end marker - emit all accumulated data
+                if buffer:
+                    self.chunk_received.emit(buffer.decode("utf-8", errors="ignore"))
+                    buffer = b""  # Reset for next recv
 
         except Exception as e:
-            self.finished_response.emit(f"Error: {e}")
-        finally:
-            if s is not None:
-                try:
-                    # tell server we are done reading
-                    s.shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
-                s.close()
-            # signal completion once
-            self.finished_response.emit("")
+            print("Worker error:", e)
+            self._emit_finished()
+        
+        self._emit_finished()
+
+    def _emit_finished(self):
+        if not self._finished:
+            self._finished = True
+            self.finished_response.emit()
 
     def stop(self):
         self._stop = True
-        # optional: also nudge socket to unblock recv
-        if self._sock is not None:
+        if self._sock:
             try:
                 self._sock.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
+            
 class PersistentTooltip(QLabel):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
@@ -2280,14 +2272,14 @@ class Assets(QWidget):
 
         # Create tooltip
         icon_path101 = find_icon('NectarX.ico')
-        initial_html = f'<img src="{icon_path101}" width="32" height="32" style="vertical-align:middle; margin-right:30px;"> <span style="font-size:20px; margin-left:30px; font-weight:bold;">Nectar-X-Studio</span><br>'
+        initial_html = f'<img src="{icon_path101}" width="32" height="32" style="vertical-align:middle; margin-right:30px;"> <span style="font-size:20px; margin-left:30px; font-weight:bold;">Nectar-X-Studio</span><center><h4>Double click to close</h4></center>'
         tooltip = PersistentTooltip(initial_html, self)
         tooltip._plain_text = ""  # initialize
         global_pos = self.search_bar.mapToGlobal(QPoint(0, -tooltip.height()))
         tooltip.show_for_duration(global_pos, duration_ms=300000)
 
         # Start streaming
-        self.stream_worker = StreamClientWorker(user_text, parent=self)
+        self.stream_worker = StreamClientWorker(user_text)
 
         def on_chunk(chunk: str):
             if not chunk:
@@ -2305,8 +2297,8 @@ class Assets(QWidget):
             tooltip.setTextFormat(Qt.TextFormat.RichText)
             tooltip.adjustSize()  # adjust for new content
 
-        def on_finished(final_text: str):
-            tooltip._plain_text = final_text or tooltip._plain_text
+        def on_finished():
+            #tooltip._plain_text = final_text or tooltip._plain_text
             tooltip.adjustSize()
 
         # Connect signals

@@ -127,7 +127,6 @@ import logging
 from PyQt6.QtCore import QSettings
 from winotify import Notification, audio
 import pickle
-import SYS_PROMPTS.sys_msgs as sys_msgs
 #import Nectar_Scripts.sys_msgs as sys_msgs
 #import Nectar_Scripts.SYS_PROMPTS.sys_msgs as sys_msgs
 import markdown
@@ -2212,17 +2211,17 @@ class RightPanel(QWidget):
 
     def app_info(self):
         # Prevents reopening multiple times
-        if hasattr(self, "settings_widget") and self.settings_widget.isVisible():
+        if hasattr(self, "settings_widget") and self.info_widget.isVisible():
             return
 
         # Create a small internal settings widget
-        self.settings_widget = QWidget(self)
-        self.settings_widget.setWindowTitle("  ")
-        self.settings_widget.setFixedSize(300, 320)
-        self.settings_widget.setWindowFlags(Qt.WindowType.Dialog)
-        #self.settings_widget.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
-        #self.settings_widget.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.settings_widget.setStyleSheet("""
+        self.info_widget = QWidget(self)
+        self.info_widget.setWindowTitle("  ")
+        self.info_widget.setFixedSize(300, 320)
+        self.info_widget.setWindowFlags(Qt.WindowType.Dialog)
+        #self.info_widget.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
+        #self.info_widget.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.info_widget.setStyleSheet("""
             QWidget {
                 background-color: #000000;
                 border: trabsparent;
@@ -2248,11 +2247,11 @@ class RightPanel(QWidget):
             }
         """)
 
-        layout = QVBoxLayout(self.settings_widget)
+        layout = QVBoxLayout(self.info_widget)
         #layout.setContentsMargins(15, 15, 15, 15)
 
         # Title
-        title_label = QLabel("<h1>App Info</h1>")
+        title_label = QLabel("<h1>Setting</h1>")
         title_label.setFixedHeight(50)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title_label)
@@ -2260,6 +2259,7 @@ class RightPanel(QWidget):
         # --- Info body---
         body = QLabel()
         body.setText(
+            "<h2>App Info</h2><br>"
             "<span style='font-size:13px; font-weight:600;'>Nectar-X-Studio</span><br>"
             "<span style='font-size:11px; color:#9ca3af;'>Edition</span> · "
             "<span style='font-size:11px; color:#e5e7eb;'>GPU Optimized</span><br><br>"
@@ -2356,17 +2356,36 @@ class RightPanel(QWidget):
 
         layout.addWidget(scroll)
 
+        title_label2 = QLabel("<h3>Other</h3>")
+        title_label2.setFixedHeight(50)
+        title_label2.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title_label2)
+
+        buttom_layout = QHBoxLayout()
+        buttom_layout.setSpacing(2)
+
+        toggle_label = QLabel('Close To Hide:')
+        toggle_label.setStyleSheet('font-size: 14px; padding: 5px;')
+
+        self.checkbox = ToggleButton_Close()
+        self.checkbox.stateChanged.connect(self.on_close_action_toggle)
+
+        buttom_layout.addWidget(toggle_label)
+        buttom_layout.addWidget(self.checkbox)
+
+        layout.addLayout(buttom_layout)
+
         # Position it at the center of the main window
         parent_rect = self.geometry()
-        x = parent_rect.x() + (parent_rect.width() - self.settings_widget.width()) // 8
-        y = parent_rect.y() + (parent_rect.height() - self.settings_widget.height()) // 2
-        self.settings_widget.move(680, y)
+        x = parent_rect.x() + (parent_rect.width() - self.info_widget.width()) // 8
+        y = parent_rect.y() + (parent_rect.height() - self.info_widget.height()) // 2
+        self.info_widget.move(680, y)
 
         # Fade-in animation
-        self.settings_widget.setWindowOpacity(0.0)
-        self.settings_widget.show()
+        self.info_widget.setWindowOpacity(0.0)
+        self.info_widget.show()
 
-        fade_in = QPropertyAnimation(self.settings_widget, b"windowOpacity")
+        fade_in = QPropertyAnimation(self.info_widget, b"windowOpacity")
         fade_in.setDuration(600)
         fade_in.setStartValue(0.0)
         fade_in.setEndValue(1.0)
@@ -2375,17 +2394,26 @@ class RightPanel(QWidget):
 
         # Keep reference so animation doesn’t get garbage collected
         self.fade_in_animation = fade_in
+    
+    def on_close_action_toggle(self):
+        if self.checkbox.isChecked():
+            self.settings.value('append_close_action', True, type=bool)
+        else:
+            self.checkbox.stateChanged.connect(self.save_close_action_setting)
+
+    def save_close_action_setting(self):
+        self.settings.setValue('append_close_action', self.checkbox.isChecked())
 
     def fade_out_settings(self):
-        if not hasattr(self, "settings_widget") or not self.settings_widget.isVisible():
+        if not hasattr(self, "info_widget") or not self.info_widget.isVisible():
             return
 
-        fade_out = QPropertyAnimation(self.settings_widget, b"windowOpacity")
+        fade_out = QPropertyAnimation(self.info_widget, b"windowOpacity")
         fade_out.setDuration(600)
         fade_out.setStartValue(1.0)
         fade_out.setEndValue(0.0)
         fade_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        fade_out.finished.connect(self.settings_widget.close)
+        fade_out.finished.connect(self.info_widget.close)
         fade_out.start()
 
         # Keep reference alive
@@ -5045,20 +5073,79 @@ def load_embedding_model_safely(model_path):
 
 embedding_model, device = load_embedding_model_safely(TRANSFORMER_MODEL_PATH)
 
+from sentence_transformers.util import cos_sim
+import gc
+
+from playwright.async_api import async_playwright
+from playwright_stealth import stealth_async
+
 class WebRAG:
-    def __init__(self, rag_engine, google_api_key="AIzaSyD4Au69N-YV36kXA3g1YQcD-n55jpFf6Y8", google_cse_id="117a05283b97b4f08"):
+    def __init__(self, rag_engine, google_api_key="AIzaSyD4Au69N-YV36kXA3g1YQcD-n55jpFf6Y8", 
+                 google_cse_id="117a05283b97b4f08"):
         self.rag_engine = rag_engine
         self.google_api_key = google_api_key
         self.google_cse_id = google_cse_id
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
+        self.playwright = None
+        self.browser = None
+        self._initialized = False
+
+    async def init_async(self):
+        """Initialize Playwright asynchronously"""
+        if self._initialized:
+            return
+        self.playwright = await async_playwright().start()
+        self.browser = await self.playwright.chromium.launch(
+            headless=True,
+            args=[
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote'
+            ]
+        )
+        self._initialized = True
+
+    async def __aenter__(self):
+        await self.init_async()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.cleanup()
+
+    def __enter__(self):
+        asyncio.create_task(self.init_async())
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        asyncio.create_task(self.cleanup())
+
+    async def cleanup(self):
+        """Clean up Playwright and GPU memory"""
+        if self.browser:
+            await self.browser.close()
+            self.browser = None
+        if self.playwright:
+            await self.playwright.stop()
+            self.playwright = None
+        self._initialized = False
+        if device == 'cuda':
+            torch.cuda.empty_cache()
+        gc.collect()
 
     def __del__(self):
+        """Sync cleanup fallback"""
         if hasattr(self, 'session'):
             self.session.close()
-        torch.cuda.empty_cache()  # Clean GPU memory
+        asyncio.create_task(self.cleanup())
 
-    # ------------------ Google News search ------------------
+    # ------------------ Google News search (unchanged) ------------------
     def google_news_search(self, query, when="1d", max_results=5):
         q = requests.utils.quote(query)
         url = f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
@@ -5074,7 +5161,7 @@ class WebRAG:
             })
         return news_results
 
-    # ------------------ Google Search with Default Recency ------------------
+    # ------------------ Google Search API (unchanged) ------------------
     def google_search(self, query, max_results=5, recent="m1"):
         if not self.google_api_key or not self.google_cse_id:
             raise ValueError("Google API key and CSE ID are required for Google search.")
@@ -5098,43 +5185,79 @@ class WebRAG:
             })
         return search_results
 
-    # ------------------ Concurrent Page Fetching ------------------
-    def fetch_pages_concurrent(self, urls, max_workers=8, max_chars=4000):  # Reduced workers
-        def fetch_single(url):
-            try:
-                resp = self.session.get(url, timeout=8)  # Reduced timeout
-                resp.raise_for_status()
-                soup = BeautifulSoup(resp.text, "html.parser")
-                for tag in soup(["script", "style", "nav", "footer", "header"]):
-                    tag.decompose()
-                return " ".join(soup.stripped_strings)[:max_chars]
-            except Exception:
-                return ""
-        
-        if not urls:
-            return []
-        
-        pages = [None] * len(urls)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_idx = {executor.submit(fetch_single, url): i for i, url in enumerate(urls)}
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                pages[idx] = future.result()
-        return pages
+    # ------------------ Playwright Concurrent Page Fetching ------------------
+    async def fetch_pages_concurrent(self, urls, max_workers=8, max_chars=4000):
+        if not urls or not self._initialized:
+            return [""] * len(urls)
 
-    # ------------------ FIXED Validation with Safe GPU Encoding ------------------
-    def validate_results(self, query, results):
+        async def fetch_single(url):
+            context = None
+            try:
+                context = await self.browser.new_context(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    viewport={'width': 1920, 'height': 1080},
+                    locale='en-US',
+                    timezone_id='America/New_York'
+                )
+                page = await context.new_page()
+                await stealth_async(page)
+                
+                await page.goto(url, wait_until='networkidle', timeout=15000)
+                await page.wait_for_load_state('domcontentloaded', timeout=5000)
+                
+                # Remove junk elements
+                await page.evaluate("""
+                    () => {
+                        const selectors = [
+                            'script', 'style', 'nav', 'footer', 'header',
+                            '.ads', '[class*="ad-"]', '[id*="ad-"]',
+                            '.advertisement', '.promo', 'iframe',
+                            '[role="banner"]', '[role="navigation"]'
+                        ];
+                        selectors.forEach(sel => {
+                            document.querySelectorAll(sel).forEach(el => el.remove());
+                        });
+                    }
+                """)
+                
+                # Extract clean text
+                text = await page.inner_text('body')
+                # Additional text cleanup
+                text = re.sub(r'\s+', ' ', text).strip()
+                return text[:max_chars]
+                
+            except Exception as e:
+                print(f"Failed to fetch {url}: {e}")
+                return ""
+            finally:
+                if context:
+                    await context.close()
+
+        # Limit concurrency to avoid overwhelming
+        semaphore = asyncio.Semaphore(max_workers)
+        
+        async def fetch_limited(url):
+            async with semaphore:
+                return await fetch_single(url)
+        
+        tasks = [fetch_limited(url) for url in urls]
+        pages = await asyncio.gather(*tasks, return_exceptions=True)
+        return [p if not isinstance(p, Exception) else "" for p in pages]
+
+    # ------------------ Enhanced Validation with Playwright ------------------
+    async def validate_results(self, query, results):
         if not results:
             return []
 
         now = datetime.now()
         current_year = str(now.year)
         outdated_keywords = ["Snapdragon 8 Gen 2", "Snapdragon 8 Gen 3", "2023", "2022"]
-        tech_domains = ["samsung.com", "gsmarena.com", "techradar.com", "91mobiles.com", "phonearena.com", "sammyfans.com"]
+        tech_domains = ["samsung.com", "gsmarena.com", "techradar.com", "91mobiles.com", 
+                       "phonearena.com", "sammyfans.com"]
 
-        # 1) Concurrently fetch pages
+        # 1) Concurrently fetch pages with Playwright
         urls = [r["link"] for r in results]
-        page_texts = self.fetch_pages_concurrent(urls)
+        page_texts = await self.fetch_pages_concurrent(urls)
 
         # 2) Build texts + filter outdated
         texts = []
@@ -5145,22 +5268,21 @@ class WebRAG:
             
             if any(keyword.lower() in text.lower() for keyword in outdated_keywords):
                 continue
-            
+
             texts.append(text)
             valid_indices.append(i)
 
         if not texts:
             return []
 
-        # 3) SAFE GPU encode with error handling + smaller batch
+        # 3) SAFE GPU encode with error handling
         try:
             if device == 'cuda':
                 torch.cuda.empty_cache()
-            
-            # Smaller batch_size for stability + normalize_embeddings=False
+
             text_embs = embedding_model.encode(
                 texts, 
-                batch_size=16,  # Reduced from 32
+                batch_size=16,
                 show_progress_bar=False, 
                 convert_to_tensor=True,
                 normalize_embeddings=True
@@ -5184,13 +5306,13 @@ class WebRAG:
                 raise
 
         # 4) Score with bonuses
-        query_emb = embedding_model.encode(query, batch_size=1, show_progress_bar=False, convert_to_tensor=True)
+        query_emb = embedding_model.encode([query], batch_size=1, show_progress_bar=False, convert_to_tensor=True)
         scored_results = []
 
         for j, text in enumerate(texts):
             i = valid_indices[j]
-            score = util.cos_sim(query_emb, text_embs[j]).item()
-            
+            score = cos_sim(query_emb, text_embs[j]).item()
+
             # Recency parsing
             date_matches = re.findall(r'\b(2025|2024|2023|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b', text, re.I)
             recency_bonus = 0
@@ -5216,8 +5338,8 @@ class WebRAG:
         scored_results.sort(key=lambda x: x["score"], reverse=True)
         return scored_results[:3]
 
-    # ------------------ Add Web Docs to RAG ------------------
-    def add_web_docs(self, query, num_results=5, recent="w1"):
+    # ------------------ Add Web Docs to RAG (now async) ------------------
+    async def add_web_docs(self, query, num_results=5, recent="w1"):
         if not self.rag_engine:
             print("RAG engine not initialized")
             return
@@ -5244,12 +5366,12 @@ class WebRAG:
             if r.get("link")
         ]
 
-        validated_web = self.validate_results(query, search_results)
-        validated_news = self.validate_results(query, news_results)
+        validated_web = await self.validate_results(query, search_results)
+        validated_news = await self.validate_results(query, news_results)
 
         combined_validated = validated_web + validated_news
         if not combined_validated:
-            # toast notification here
+            self._show_toast("WebRAG Warning", "No recent/relevant documents found. Try different query.")
             return
 
         docs = []
@@ -5261,25 +5383,27 @@ class WebRAG:
         if docs:
             self.rag_engine.add_documents(docs)
             top_score = combined_validated[0]["score"]
-            toast = Notification(
-                app_id="Nectar-X-Studio",
-                title="WebRAG Info",
-                msg=f"Added {len(docs)} recent web/news documents (top score: {top_score:.1f})",
-                icon=find_icon('background/NectarX.png'),
-                duration="short"
+            self._show_toast(
+                "WebRAG Info", 
+                f"Added {len(docs)} recent web/news documents (top score: {top_score:.1f})"
             )
-            toast.set_audio(audio.SMS, loop=False)
-            toast.show()
         else:
+            self._show_toast("WebRAG Warning", "No valid documents after processing.")
+
+    def _show_toast(self, title, msg):
+        """Helper for toast notifications"""
+        try:
             toast = Notification(
                 app_id="Nectar-X-Studio",
-                title="WebRAG Warning",
-                msg="No recent/relevant documents found. Try different query.",
+                title="WebRAG Engine",
+                msg=f"{msg}",
                 icon=find_icon('background/NectarX.png'),
                 duration="short"
             )
             toast.set_audio(audio.SMS, loop=False)
             toast.show()
+        except:
+            print(f"Toast: {title} - {msg}")
 
 class LLM_Engine(QWidget):
     def __init__(self, parent=None):
@@ -6738,10 +6862,11 @@ class LLM_Engine(QWidget):
                 conversation_list,
                 max_tokens=self.max_tokens.value(),
                 temperature=self.temperature.value() / 100,
-                stream=True
+                stream=True,
             )
 
             full_reply = []
+
             for chunk in stream:
                 delta = chunk["choices"][0]["delta"]
                 if "content" in delta:
@@ -6749,36 +6874,29 @@ class LLM_Engine(QWidget):
                     full_reply.append(token)
                     try:
                         client_socket.sendall(token.encode("utf-8"))
-                    except (ConnectionAbortedError,
-                            ConnectionResetError,
-                            BrokenPipeError,
-                            OSError) as e:
-                        # client disconnected; stop streaming and exit loop
-                        print(f"[handle_client] client disconnected while streaming: {e}")
-                        break
+                    except OSError:
+                        # client disconnected → stop streaming immediately
+                        return
 
-            # If client is still connected, try to send end marker and store reply
-            reply = "".join(full_reply).strip()
+            # 🔥 SEND END MARKER (ONCE, CLEAN)
             try:
-                client_socket.sendall(b"\n<<END_OF_RESPONSE>>")
-            except (ConnectionAbortedError,
-                    ConnectionResetError,
-                    BrokenPipeError,
-                    OSError) as e:
-                print(f"[handle_client] client disconnected before end marker: {e}")
+                client_socket.sendall(b"<<END_OF_RESPONSE>>")
+            except OSError:
+                return
 
+            reply = "".join(full_reply).strip()
             if reply:
-                self.append_message('assistant', reply)
+                self.append_message("assistant", reply)
 
         except Exception as e:
-            # Do NOT try to send error back over possibly-dead socket
             print(f"[handle_client] unexpected error: {e}")
 
         finally:
             try:
-                client_socket.close()
+                client_socket.shutdown(socket.SHUT_WR)  # 👈 important
             except OSError:
                 pass
+            client_socket.close()
 
     def terminate(self):
         """Terminate the server and clean up resources."""
@@ -7113,6 +7231,84 @@ class ToggleButton(QCheckBox):
         painter.drawEllipse(self.circle_x, 2, 16, 16)
         painter.end()
 
+class ToggleButton_Close(QCheckBox):
+    def __init__(self, text='', parent=None):
+        super().__init__(text, parent)
+        self.circle_x = 2  # Default unchecked position (left side)
+        self.setStyleSheet("""
+            QCheckBox {
+                spacing: 10px;
+                font-size: 12px;
+            }
+            QCheckBox::indicator {
+                width: 40px;
+                height: 20px;
+                border-radius: 10px;
+                background: transparent;
+            }
+        """)
+
+        self.animation = QVariantAnimation(self)
+        self.animation.setDuration(300)
+        self.animation.valueChanged.connect(self.update_position)
+        self.stateChanged.connect(self.animate_slider)
+
+        # Settings integration
+        self.settings = QSettings("Zashiron", "Nectar-X-Studio")
+        self._sync_from_settings()
+
+    def _sync_from_settings(self):
+        """Load initial state from settings and set slider position."""
+        if self.settings:
+            checked = self.settings.value('append_close_action', True, type=bool)
+            self.setChecked(checked)
+            # Critical: Set initial slider position based on loaded state
+            self.circle_x = 22 if checked else 2
+            self.update()  # Force repaint with correct position
+
+    def _on_state_changed(self, state):
+        """Save state to settings when toggled."""
+        if self.settings:
+            checked = state == Qt.CheckState.Checked.value
+            self.settings.setValue('append_close_action', checked)
+
+    def update_position(self, value):
+        self.circle_x = value
+        self.update()
+
+    def animate_slider(self, state):
+        """Animate based on checkbox state."""
+        self._on_state_changed(state)  # Save to settings
+        checked = state == Qt.CheckState.Checked.value
+        start_x = self.circle_x
+        end_x = 22 if checked else 2
+        self.animation.stop()
+        self.animation.setStartValue(start_x)
+        self.animation.setEndValue(end_x)
+        self.animation.start()
+
+    def paintEvent(self, event):
+        """Custom toggle switch drawing - NO super() call."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Background track (positioned in indicator area)
+        color = QColor('#ff4444') if self.isChecked() else QColor('#444444')
+        painter.setBrush(color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(0, 2, 40, 16, 8, 8)
+
+        # Circle slider
+        painter.setBrush(QColor('#ffffff'))
+        painter.drawEllipse(int(self.circle_x), 4, 12, 12)
+
+        # Draw text manually (super() handled this before)
+        painter.setPen(self.palette().color(QPalette.ColorRole.WindowText))
+        painter.drawText(50, 0, self.width() - 50, self.height(), 
+                        Qt.AlignmentFlag.AlignVCenter, self.text())
+
+        painter.end()
+ 
 class DownloadCard(QFrame):
     def __init__(self, file_name, save_path, delete_callback=None):
         super().__init__()
@@ -7500,10 +7696,13 @@ class Downloader(QWidget):
         main_layout.addWidget(self.text_output)
         toggle_layout = QHBoxLayout()
         toggle_layout.setSpacing(2)
+
         toggle_label = QLabel('GGUF Mode:')
         toggle_label.setStyleSheet('font-size: 14px; padding: 5px;')
+
         self.gguf_checkbox = ToggleButton()
         self.gguf_checkbox.stateChanged.connect(self.toggle_gguf_mode)
+
         toggle_layout.addWidget(toggle_label)
         toggle_layout.addWidget(self.gguf_checkbox)
         toggle_layout.addStretch()
@@ -8755,7 +8954,7 @@ class MainWindow(QMainWindow):
         self.setFixedSize(1480, 788)
 
         self.settings = QSettings("Zashiron", "Nectar-X-Studio")
-        self.auth_methods = ["Click to choose an option","Password", "PIN", "Pattern", "2FA (Authenticator)"]
+        self.auth_methods = ["Click to choose an option", "None", "Password", "PIN", "Pattern", "2FA (Authenticator)"]
         self.pattern_sequence = []
 
         central = QWidget()
@@ -8793,7 +8992,7 @@ class MainWindow(QMainWindow):
         tray_menu = QMenu()
 
         restore_action = QAction('Restore', self)
-        restore_action.triggered.connect(self.show)
+        restore_action.triggered.connect(self.restore_state)
 
         exit_action = QAction('Exit', self)
         exit_action.triggered.connect(QApplication.quit)
@@ -8802,25 +9001,31 @@ class MainWindow(QMainWindow):
         tray_menu.addAction(exit_action)
 
         self.tray_icon.setContextMenu(tray_menu)
-        self.tray_icon.show()
+        self.tray_icon.hide()
 
         # Authentication setup
         self.Auth()
         self.check_existing_user()
 
-    # ------------------------------
-    # Override closeEvent to hide
-    # ------------------------------
+    def restore_state(self):
+        self.show()
+        self.tray_icon.hide()
+
     def closeEvent(self, event):
-        """Instead of closing, hide window and keep in tray."""
-        event.ignore()  # ignore the close
-        self.hide()     # hide the window
-        self.tray_icon.showMessage(
-            "Nectar-X-Studio",
-            "Application minimized to tray. Double-click the tray icon to restore.",
-            QSystemTrayIcon.MessageIcon.Information,
-            3000  # duration in ms
-        )
+
+        if self.settings.value('append_close_action', True, type=bool):
+            event.ignore()
+            self.hide()
+            self.tray_icon.show()
+
+            self.tray_icon.showMessage(
+                "Nectar-X-Studio",
+                "Application minimized to tray. Right-click the tray icon to restore.",
+                QSystemTrayIcon.MessageIcon.Information,
+                3000
+            )
+        else:
+            event.accept()  # close normally
 
     # ------------------------------------------------------------
     # Lock Screen / Authentication
@@ -8987,12 +9192,16 @@ class MainWindow(QMainWindow):
     def check_existing_user(self):
         settings1 = QSettings("Zashiron", "Nectar-X-Studio")
 
-        if not settings1.contains("auth_method"):
+        # --- Retrieve method ---
+        method = settings1.value("auth_method", "None")  # Default to None
+    
+        #if method == "None":
+            #self.overlay.setVisible(False)  # Skip auth entirely
+            #return
+        
+        if not settings1.contains("auth_method") or method == "Click to choose an option":
             self.overlay_label.setText("🚧 Welcome! Create a login method. 🚧")
             return
-
-        # --- Retrieve method ---
-        method = settings1.value("auth_method")
 
         # --- Retrieve Google Info ---
         settings1.beginGroup("google")
@@ -9081,6 +9290,9 @@ class MainWindow(QMainWindow):
         self.input_field.clear()
         self.pattern_sequence = []
 
+        #if method == "None":
+        #    return  # No input needed
+    
         if method in ["Password", "PIN"]:
             self.input_field.show()
             self.input_field.setEchoMode(QLineEdit.EchoMode.Password)
@@ -9101,6 +9313,13 @@ class MainWindow(QMainWindow):
 
     def handle_submit(self):
         method = self.method_selector.currentText()
+        if method == "None":
+            self.settings.setValue("auth_method", "None")
+            self.settings.remove("credential")  # Clean up old credentials
+            self.settings.remove("2fa_secret")
+            QMessageBox.information(self, "Success", "No security enabled - access granted!")
+            self.accept_login()
+            return
         if not self.settings.contains("auth_method"):
             if method == "Pattern":
                 if not self.pattern_sequence:
@@ -9160,6 +9379,10 @@ class MainWindow(QMainWindow):
             self.overlay.setVisible(False)
         else:
             stored_method = self.settings.value("auth_method")
+            if stored_method == "None":
+                self.accept_login()  # Already no security
+                return
+            
             if stored_method != method:
                 QMessageBox.warning(self, "Error", "Wrong login method selected!")
                 return

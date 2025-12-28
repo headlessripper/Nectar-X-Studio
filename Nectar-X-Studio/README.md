@@ -29,27 +29,18 @@ Whether you’re generating natural language, analyzing text, or embedding AI in
 
 Nectar-X-Studio works with all LLM Models (OpenAI's GPT, Mistral, meta's llama, etc.) and self-hosted models (Ollama, vLLM, etc.).
 
----
+# Install LLAMA-CPP:
+## CUDA:
+      pip install "llama-cpp-python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
 
-## 🔗 Nectar Interact API  
+## ROC-M
+      pip install "llama-cpp-python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/rocm6.0
 
-📄 [Nectar-API.txt](https://github.com/user-attachments/files/20288337/Nectar-API.txt)  
+## CPU
+      pip install llama-cpp-python==0.3.4
 
-### Example: Local Developer API Usage  
+# Engine Design: 
 
-```python
-def send_to_AlphaLLM(question):
-    import socket
-    try:
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect(("127.0.0.1", 5005))
-        client.send(question.encode("utf-8"))
-        response = client.recv(4096)
-        client.close()
-        return response.decode("utf-8")
-    except (socket.error, socket.timeout) as e:
-        return f"[Error] Could not connect to AlphaLLM: {e}"
-```
-
+<img width="1635" height="1153" alt="Screenshot 2025-12-24 130801" src="https://github.com/user-attachments/assets/b16d9e6a-75be-4fd2-adb3-41947e6cfb56" />
 
 
