@@ -1,0 +1,97 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nectar-x-studio"
+version = "0.1.0"
+description = "Local LLM inference and orchestration platform with RAG, WebRAG, TTS/STT, and plugin ecosystem."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+
+authors = [
+  { name = "Ikenna Christian Great", email = "Nategreat318@gmail.com" },
+]
+
+keywords = [
+  "llm",
+  "gguf",
+  "local-ai",
+  "rag",
+  "webrag",
+  "tts",
+  "stt",
+  "pyqt6",
+  "desktop-app",
+]
+
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent",
+]
+
+dependencies = [
+  # Core GUI
+  "PyQt6>=6.10.0",
+  "PyQt6-WebEngine>=6.10.0",
+
+  # API / web stack
+  "fastapi>=0.122.0",
+  "uvicorn>=0.38.0",
+  "starlette>=0.50.0",
+  "requests>=2.32.5",
+  "httpx>=0.28.1",
+  "websockets>=15.0.1",
+
+  # Data / utils
+  "pydantic>=2.12.5",
+  "numpy>=2.3.0",
+  "scipy>=1.16.0",
+  "scikit-learn>=1.8.0",
+  "psutil>=7.1.0",
+
+  # LLM / embeddings / RAG
+  "sentence-transformers>=5.2.0",
+  "faiss-cpu>=1.13.1",
+  "transformers>=4.57.3",
+  "huggingface-hub>=0.36.0",
+  "tokenizers>=0.22.1",
+  "safetensors>=0.7.0",
+
+  # Web scraping / RAG web
+  "beautifulsoup4>=4.14.3",
+  "trafilatura>=2.0.0",
+  "lxml>=6.0.2",
+
+  # TTS / STT
+  "edge-tts>=7.2.3",
+  "gTTS>=2.5.4",
+
+  # Misc tools you actually import
+  "python-dateutil>=2.9.0.post0",
+  "tabulate>=0.9.0",
+  "tqdm>=4.67.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "pytest-qt>=4.4.0",
+  "ruff>=0.6.0",
+  "black>=24.0.0",
+  "mypy>=1.10.0",
+]
+
+[project.scripts]
+nectar-x-studio = "nectar_x_studio.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/headlessripper/Nectar-X-Studio"
+Source = "https://github.com/headlessripper/Nectar-X-Studio"
+Issues = "https://github.com/headlessripper/Nectar-X-Studio/issues"
