@@ -1,7 +1,11 @@
-# gpu
+# Gpu
 
 pip install "llama-cpp-python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
 
-# cpu
+# Cpu
 
 pip install "llama-cpp-python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+
+# Torch Cuda
+
+pip install --extra-index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
